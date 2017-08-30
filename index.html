@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+</head>
+<body>
+<link href="build/styles.css" type="text/css" rel="stylesheet">
+<link rel="shortcut icon" href="favicon.ico">
+<script src="build/build.js"></script>
+
+
+<div class="main-container" style="display: none">
+    <form class="form-horizontal">
+        <!--<div class="form-group">-->
+            <!--<iframe src="https://ggbm.at/gkAbSh5P" frameborder="0" id="previewSet"></iframe>-->
+        <!--</div>-->
+        <div class="form-group">
+            <label class="col-sm-8 control-label">Shoulder angle<span>(A)</span>:</label>
+
+            <div class="col-sm-4">
+                <input class="form-control" type="number" id="shoulder" placeholder="Shoulder">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-8 control-label">Elbow angle<span>(B)</span>:</label>
+
+            <div class="col-sm-4">
+                <input class="form-control" type="number" id="elbow" placeholder="Elbow">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-8 control-label">Low arm length<span>(C)</span>:</label>
+
+            <div class="col-sm-4">
+                <input class="form-control" type="number" id="low_arm" placeholder="Low arm">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-8 control-label"> Upper arm length<span>(D)</span>:</label>
+
+            <div class="col-sm-4">
+                <input class="form-control" type="number" id="upper_arm" placeholder="Upper arm">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="col-sm-8 control-label"> Shoulder to the figure point length<span>(E)</span>:</label>
+            <div class="col-sm-4">
+                <input class="form-control" type="number" id="shoulder_arm_length" placeholder="E">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="combinations">Select combination:</label>
+            <select class="form-control" id="combinations">
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+            </select>
+        </div>
+        <button type="button" class="btn btn-danger" id="resetView">Reset</button>
+        <button type="button" class="btn btn-success"  id="checkInputed">Check</button>
+    </form>
+
+
+</div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+@import "../../assets/libs/bootstrap.min.css";
+
+.main-container ,canvas,.viewer{
+  position: absolute;
+  left: 0;
+  top:0;
+}
+ .viewer{
+  width: 100%;
+  height: 100%;
+}
+.main-container {
+  z-index: 1;
+  padding: 30px;
+}
+.selected{
+  border-color:blue ;
+}
+.alerts{
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  width: 0;
+  padding: 10px;
+  color: white;
+  font-size: 16px;
+  transition: all 0.3s linear;
+  z-index: 9999;
+  .active{
+    width: inherit;
+  }
+  .error{
+    background: red;
+  }
+  .warn{
+    background: orange;
+  }
+  .success{
+    background: orange;
+  }
+}
+
