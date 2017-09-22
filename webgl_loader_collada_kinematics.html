@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            background: #777;
+            padding: 0;
+            margin: 0;
+            font-weight: bold;
+            overflow: hidden;
+        }
+
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            color: #ffffff;
+            padding: 5px;
+            font-family: Monospace;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        a {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+<script src="assets/libs/threejs/three.js"></script>
+
+<script src="assets/libs/tween.min.js"></script>
+<script src="assets/libs/threejs/OrbitControls.js"></script>
+<script src="assets/libs/threejs/TransformControls.js"></script>
+<script src="assets/libs/threejs/ColladaLoader.js"></script>
+<script src="assets/libs/dat.gui.min.js"></script>
+
+
+<script>
+
+    function main() {
+
+        var bonesAn = [
+            {name: "Base HumanLUpperarm"},
+            {name: "Base HumanLForearm"},
+            {name: "Base HumanHead"},
+            {name: "Base HumanSpine1"},
+            {name: "Base HumanLThigh"},
+            {name: "Base HumanLCalf"},
+            {name: "Base HumanRUpperarm"},
+            {name: "Base HumanRThigh"},
+            {name: "Base HumanRCalf"},
+            {name: "Base HumanLFoot"},
+            {name: "Base HumanRFoot"},
+        ];
+        var animationsKeys;
+        var container, gui, transformControl;
+
+        var camera, scene, renderer, objects;
+        var particleLight;
+        var dae, controls;
+
+        var kinematics;
+        var kinematicsTween;
+        var tweenParameters = {};
+
+        var loader = new THREE.ColladaLoader();
+        loader.options.convertUpAxis = true;
+        gui = new dat.GUI({width: 350});
+        var
+                bonesPrefix = ["UpperArm", "Forearm", "Thigh", "Head", "Calf", "palm", "spine", "Foot"],
+                bones = [
+                    {
+                        name: bonesPrefix[0],
+                        rotation: {x: 90, y: 45, z: 90},
+                        position: {x: 50, y: 45, z: 10},
+                        scale: {x: 2, y: 2, z: 2}
+                    },
+                    {
+                        name: bonesPrefix[1],
+                        rotation: {x: 90, y: 45, z: 45},
+                        position: {x: 50, y: 10, z: 10},
+                        scale: {x: 2, y: 2, z: 2}
+                    },
+                    {
+                        name: bonesPrefix[2],
+                        rotation: {x: 90, z: 45, y: 45},
+                        position: {x: 60, y: 10, z: 50},
+                        scale: {x: 2, y: 2, z: 2}
+                    },
+                    {
+                        name: bonesPrefix[3],
+                        rotation: {x: 90, y: 60, z: 90},
+                        position: {x: 15, y: 10, z: 10},
+                        scale: {x: 2, y: 2, z: 2}
+                    }, {
+                        name: bonesPrefix[4],
+                        rotation: {x: 90, y: 60, z: 90},
+                        position: {x: 15, y: 10, z: 10},
+                        scale: {x: 2, y: 2, z: 2}
+                    }, {
+                        name: bonesPrefix[5],
+                        rotation: {x: 90, y: 60, z: 90},
+                        position: {x: 15, y: 10, z: 10},
+                        scale: {x: 2, y: 2, z: 2}
+                    }
+                ],
+                folders = {},
+                headBone,
+                handBone,
+                keys,
+                par = {
+                    animations: [],
+                    bones: [],
+                    hats: [],
+                    hatss: [],//.Easing.Exponential.In
+                    easing: ["Exponential.In", "Exponential.Out", "Linear.None", "Quadratic.In", "Sinusoidal.In", "Back.In"],
+                    createAnimation: function () {
+                        keys = [];
+                        ["saveKey", "saveAnimation", "multiKeys"].forEach(function (e) {
+                            disableGUI(folders["Animation"][e], true);
+                        });
+                        disableGUI(folders["Animation"]["createAnimation"]);
+
+                    },
+                    saveKey: function () {
+                        if (!transformControl.object)return console.log("select the bone");
+                        if (this.multiKeys) {
+                            if (!keys.length)keys.push({});
+                            if (!keys[keys.length - 1].list)keys[keys.length - 1].list = [];
+                            keys[keys.length - 1].list.push({
+                                bone: {
+                                    name: transformControl.object.name,
+                                    obj: transformControl.object
+                                }, value: transformControl.object.quaternion.clone()
+                            });
+                        } else {
+                            keys.push({
+                                bone: {name: transformControl.object.name, obj: transformControl.object},
+                                value: transformControl.object.quaternion.clone()
+                            });
+                        }
+
+                    },
+                    saveAnimation: function () {
+                        if (!keys.length)return;
+                        var _sd = keys.concat([]).map(function (el) {
+                            var res = {};
+                            if (el.list) {
+                                res.list = [];
+                                el.list.forEach(function (elm) {
+                                    res.list.push({bone: {name: elm.bone.name}, value: elm.value})
+                                });
+                            } else {
+                                res = {bone: {name: el.bone.name}, value: el.value};
+                            }
+                            return res;
+                        });
+                        console.log(JSON.stringify(_sd));
+                        this.reset();
+                        ["saveKey", "saveAnimation", "multiKeys"].forEach(function (e) {
+                            disableGUI(folders["Animation"][e]);
+                        });
+                        disableGUI(folders["Animation"]["createAnimation"], true);
+                        startTween(keys);
+                    },
+                    multiKeys: false,
+                    reset: function () {
+                        dae.traverse(function (child) {
+                            if (child.rotation && child.defRotatioins) {
+                                child.rotation.copy(child.defRotatioins);
+                            }
+                        });
+//                        bonesAn.forEach(function(bone){
+//                            bone.obj.rotation.copy(bone.obj.defRotatioins);
+//                        })
+                    },
+                    deactivateAllActions: function () {
+                    },
+//                    position: {x: 0, y: 0, z: 0},
+                    rotation: {x: 0, y: 0, z: 0},
+//                    scale: {x: 0, y: 0, z: 0},
+                },
+                changes = ['position', 'rotation', 'scale'],
+
+                selectedBone,
+                items = 0;
+
+
+        function onLoadDae() {
+            main.scene = scene;
+            var _bones = [];
+            dae.traverse(function (child) {
+                if (child.rotation) {
+                    child.defRotatioins = child.rotation.clone();
+                    child.defQuads = child.quaternion.clone();
+                }
+
+                if (child.type == 'Mesh') {
+
+                    for (var i = 0; i < child.material.length; i++) {
+                        child.material[i].shading = THREE.SmoothShading;
+                        child.material[i].transparent = false;
+                        child.material[i].side = THREE.DoubleSide;
+                    }
+                } else {
+                    for (var i = 0; i < bonesPrefix.length; i++) {
+                        if (child.name.toLowerCase().match(bonesPrefix[i].toLowerCase()) && child.name.toLowerCase().match("base human")) {
+                            for (var bi = 0; bi < bonesAn.length; bi++) {
+                                if (child.name == bonesAn[bi].name) {
+
+                                    bonesAn[bi].obj = child;
+                                    break;
+                                }
+                            }
+                            if (child.name.toLowerCase().match(bonesPrefix[3].toLowerCase())) {
+                                headBone = child;
+                            } else if (child.name == "Base HumanLPalm") {
+                                handBone = child;
+                            }
+                            _bones.push(child);
+                        }
+                    }
+                }
+            });
+            for (var itsss = -1; itsss < 2; itsss++) {
+                var geometry = new THREE.CylinderBufferGeometry(itsss < 1 ? 6 : 7, itsss == 1 ? 6 : 7, itsss * 1.8 + 10, 32);
+                var material = new THREE.MeshPhongMaterial();
+                var cylinder = new THREE.Object3D(),
+                        mesh = new THREE.Mesh(geometry, material),
+                        downwS = new THREE.Mesh(new THREE.CylinderBufferGeometry(7, 7, 0, 32), material);
+                mesh.rotation.z = Math.PI / 2;
+                cylinder.position.x = 87 + (itsss + 0.5) * 10;
+                downwS.position.y = (itsss * 2 + 10) / 2;
+                cylinder.add(mesh);
+                mesh.add(downwS);
+                par.hats.push(cylinder);
+                cylinder.scale.multiplyScalar(8);
+
+            }
+            TWEEN.curEasing = TWEEN.Easing.Exponential.In;
+            gui.add(par, "hatss", par.hats.concat([]).map(function (c, i) {
+                return i
+            })).listen().onChange(function (value) {
+                if (par.currentHat)headBone.remove(par.currentHat);
+                headBone.add(par.hats[value]);
+                par.currentHat = par.hats[value];
+
+                var _selectedBone;
+                startTween(animationsKeys[2].keyFrames.concat(animationsKeys[0].keyFrames));
+            });
+            var an = folders["Animation"] = gui.addFolder("Animation");
+            an.createAnimation = an.add(par, "createAnimation");
+            an.saveKey = an.add(par, "saveKey");
+            an.saveAnimation = an.add(par, "saveAnimation");
+            an.multiKeys = an.add(par, "multiKeys");
+            ["saveKey", "saveAnimation", "multiKeys"].forEach(function (e) {
+                disableGUI(an[e]);
+            });
+
+            gui.add(par, "easing", par.easing).listen().onChange(function (value) {
+                TWEEN.curEasing = TWEEN.Easing[value.split(".")[0]][value.split(".")[1]]
+            });
+            gui.add(par, "reset");
+            gui.add(par, "bones", _bones.map(function (el, index) {
+                return el.name + "__" + index
+            })).listen().onChange(function (value) {
+                selectedBone = _bones[value.split("__")[1]];
+                var _selectedBone;
+                scene.remove(transformControl);
+                transformControl.detach();
+                transformControl.attach(selectedBone);
+                scene.add(transformControl);
+                /* for (var i = 0; i < bones.length; i++) {
+                 if (value.toLowerCase().match(bones[i].name.toLowerCase())) {
+                 _selectedBone = bones[i];
+                 break;
+                 }
+                 }
+                 for (var field in par) {
+                 if (changes.indexOf(field) > -1) {
+                 for (var fields in par[field]) {
+
+                 if (_selectedBone && _selectedBone[field][fields] != undefined) {
+                 disableGUI(folders[field + fields], true);
+                 var angle = _selectedBone[field][fields]*Math.PI/180;
+                 folders[field + fields].listen().min(selectedBone[field][fields]-angle).max(selectedBone[field][fields]+angle);
+                 par[field][fields] = selectedBone[field][fields];
+                 } else {
+                 disableGUI(folders[field + fields], false);
+                 }
+                 }
+                 }
+
+                 }*/
+
+            });
+            /*for (var field in par) {
+             if (changes.indexOf(field) > -1) {
+             var fold = folders[field] = gui.addFolder(field);
+             for (var fields in par[field]) {
+             var isR = field == "rotation",
+             size = isR ? 360 : 1000;
+             folders[field + fields] = fold.add(par[field], fields).listen().min(-size).max(size).step(0.1).onChange((function (f, f1) {
+             return function (e) {
+             if (selectedBone) {
+             selectedBone[f][f1] = e;
+             console.log(selectedBone.name, f1,e);
+             }
+             }
+             })(field, fields));
+             disableGUI(folders[field + fields]);
+             }
+             }
+             }*/
+
+
+            animationsKeys = [
+                {
+                    name: "hat dress", keyFrames: [
+                    {
+                        list: [
+                            {
+                                bone: bonesAn[0],
+                                value: new THREE.Quaternion(-0.4621439831718533, -0.33867064352656906, 0.5514801509449086, 0.5125966899388396)
+                            },
+                        ]
+                    },
+                    {
+                        list: [
+                            {
+                                bone: bonesAn[1],
+                                abs: "y",
+                                value: new THREE.Quaternion(-0.2621439831718533, -0.46867064352656906, 0.4514801509449086, 0.7125966899388396)
+                            },
+                        ]
+                    },
+
+                    {
+                        list: [
+                            {
+                                bone: bonesAn[0],
+                                value: new THREE.Quaternion(-0.33337136196114764, -0.49747483772336454, 0.6606411278339558, 0.45260776138612496)
+                            },
+                            {
+                                bone: bonesAn[2],
+                                value: new THREE.Quaternion(-0.01495854770728211, -0.014532487985261272, -0.1052911855771364, -0.9942227195903173)
+                            },
+                            {
+                                bone: bonesAn[1],
+                                value: new THREE.Quaternion(0.3310481974331674, 0.6081927481877184, -0.4532810026504598, -0.5613005906990813)
+                            },
+                        ], onComplete: function () {
+                        if (!par.currentHat.defQuaternion)par.currentHat.defQuaternion = par.currentHat.quaternion.clone();
+                        if (!par.currentHat.defPst)par.currentHat.defPst = par.currentHat.position.clone();
+                        par.currentHat.quaternion.copy(new THREE.Quaternion(0.25969443230596445, 0.5884451591346814, -0.24462311396650188, -0.7255569240720134))
+                        par.currentHat.position.set(par.currentHat.position.x + 11.9390217292922, -10.970720931874563, 59.029847585849446);
+                        handBone.add(par.currentHat);
+                    }
+                    },
+                    {
+                        list: [
+                            {
+                                bone: bonesAn[1],
+                                value: new THREE.Quaternion(-0.3720833464882111, -0.1563140988007093, 0.15761052137997905, 0.901245438814061)
+                            },
+                            {
+                                bone: bonesAn[0],
+                                value: new THREE.Quaternion(0.18064000926662085, -0.57787471184843, 0.016725948437496807, 0.7957072857654646)
+                            },
+                        ]
+                    },
+                    {
+                        list: [
+                            {
+                                bone: bonesAn[3],
+                                value: new THREE.Quaternion(-2.7755575615628914e-17, 5.551115123125783e-17, 0.63162163217242, 0.7752767981642739)
+                            },
+                            {
+                                bone: bonesAn[0],
+                                value: new THREE.Quaternion(-0.18442568058282224, 0.48682392459457846, -0.07060565314518653, -0.8508845254871504)
+                            },
+                        ]
+                    },
+                    {bone: bonesAn[3]},
+                    {
+                        list: [
+                            {
+                                bone: bonesAn[0],
+                                value: new THREE.Quaternion(-0.33337136196114764, -0.49747483772336454, 0.6606411278339558, 0.45260776138612496)
+                            },
+                            {
+                                bone: bonesAn[1],
+                                value: new THREE.Quaternion(0.3310481974331674, 0.6081927481877184, -0.4532810026504598, -0.5613005906990813)
+                            },
+                        ], onComplete: function () {
+                        par.currentHat.quaternion.copy(par.currentHat.defQuaternion);
+                        par.currentHat.position.copy(par.currentHat.defPst);
+                        headBone.add(par.currentHat);
+                    }
+                    },
+
+                    {
+                        bone: bonesAn[2],
+                        value: new THREE.Quaternion(-0.01495854770728211, -0.014532487985261272, -0.1052911855771364, -0.9942227195903173)
+                    },
+                    {bone: bonesAn[0]},
+                    {bone: bonesAn[1]},
+                ]
+                },
+                {
+                    name: "walking", keyFrames: [
+                    {
+                        list: [
+                            {
+                                bone: bonesAn[4],
+                                value: new THREE.Quaternion(-0.2546807526090113, -0.9657016846512816, -0.000289558033627374, 0.05057563787846564)
+                            },
+                            {
+                                bone: bonesAn[5],
+                                value: new THREE.Quaternion(0.03950519188464485, -0.01769596846478244, -0.2564900053236798, 0.9655562583115082)
+                            },
+                            {
+                                bone: bonesAn[6],
+                                value: new THREE.Quaternion(0.055352837327738824, -0.46929942172653244, -0.12565941628905808, -0.8722980121584705)
+                            },
+                            {
+                                bone: bonesAn[0],
+                                value: new THREE.Quaternion(0.2987982373403675, -0.38159730151113314, 0.011876157174832341, 0.874621189922412)
+                            },
+                            {
+                                bone: bonesAn[7],
+                                value: new THREE.Quaternion(0.014108773192515744, 0.9962538715893068, -0.07369364769544612, 0.042993256679839886)
+                            },
+                        ]
+                    },
+//                    {bone:bonesAn[5], value:new THREE.Quaternion(0.02927482932726333,-0.012967484561695192,-0.13988165079302137,0.9896499323601008),duration:500},
+                    {
+                        list: [
+                            {bone: bonesAn[4]},
+                            {bone: bonesAn[5]},
+                            {bone: bonesAn[6]},
+                            {bone: bonesAn[0]},
+                            {bone: bonesAn[7]},
+                        ]
+                    },
+                    {
+                        list: [
+                            {
+                                bone: bonesAn[7],
+                                value: new THREE.Quaternion(0.2762361960832063, 0.9600240071773267, -0.0016700854459145431, 0.045218231025422995)
+                            },
+                            {
+                                bone: bonesAn[8],
+                                value: new THREE.Quaternion(0.00041736461998695407, 0.006131085785778881, -0.1598794629396793, 0.9871174335281743)
+                            },
+                            {
+                                bone: bonesAn[0],
+                                value: new THREE.Quaternion(-0.05921512265453845, -0.4746938490697332, 0.1711129742643864, 0.8613244129133236)
+                            },
+                            {
+                                bone: bonesAn[6],
+                                value: new THREE.Quaternion(0.3911287726075824, -0.3602497575135989, 0.03791167294807424, -0.8460502912090819)
+                            },
+                            {
+                                bone: bonesAn[4],
+                                value: new THREE.Quaternion(0.06062716749195843, -0.9968783155680123, 0.015567059663487814, 0.0481211558890883)
+                            },
+                        ]
+                    },
+//                    {bone:bonesAn[8], value:new THREE.Quaternion(0.02927482932726333,-0.012967484561695192,-0.13988165079302137,0.9896499323601008),duration:500},
+                    {
+                        list: [
+                            {bone: bonesAn[7]},
+                            {bone: bonesAn[8]},
+                            {bone: bonesAn[0]},
+                            {bone: bonesAn[6]},
+                            {bone: bonesAn[4]},
+                        ]
+                    },
+                ]
+                },
+
+                {
+                    custom: "walking1",
+                    name: "walking1",
+                    keyFrames: [
+                        {
+                            "list": [{
+                                "bone": {"name": "Base HumanLThigh"},
+                                "value": {
+                                    "_x": -0.31227778083552815,
+                                    "_y": -0.9486435669334682,
+                                    "_z": -0.003329626747765768,
+                                    "_w": 0.05046674723408551
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLCalf"},
+                                "value": {
+                                    "_x": -0.017401183533687803,
+                                    "_y": -0.004264536444888056,
+                                    "_z": 0.02953275754106305,
+                                    "_w": 0.9994032628604788
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLUpperarm"},
+                                "value": {
+                                    "_x": 0.39987815503114066,
+                                    "_y": -0.34032835795987226,
+                                    "_z": -0.037805349251532505,
+                                    "_w": 0.8502029061312508
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLUpperarm"},
+                                "value": {
+                                    "_x": 0.42598109571595527,
+                                    "_y": -0.41783828070697504,
+                                    "_z": -0.024740598314092616,
+                                    "_w": 0.8020842636244202
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRUpperarm"},
+                                "value": {
+                                    "_x": 0.13342302646599258,
+                                    "_y": -0.4840734904557474,
+                                    "_z": -0.3819515731834153,
+                                    "_w": -0.7758763613058558
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRThigh"},
+                                "value": {
+                                    "_x": -0.1534220823288469,
+                                    "_y": 0.9871242044551557,
+                                    "_z": 0.017514185533175353,
+                                    "_w": 0.04172206737502304
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLFoot"},
+                                "value": {
+                                    "_x": -0.02485113984358034,
+                                    "_y": -0.03678016837180437,
+                                    "_z": 0.5929416283806385,
+                                    "_w": 0.8040210646575676
+                                }
+                            }]
+                        },
+                        {
+                            "list": [{
+                                "bone": {"name": "Base HumanRThigh"},
+                                "value": {
+                                    "_x": 0.3109536067147225,
+                                    "_y": 0.9493473467885384,
+                                    "_z": -0.0033128116280599917,
+                                    "_w": 0.04512762880522497
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLThigh"},
+                                "value": {
+                                    "_x": 0.1928589015089535,
+                                    "_y": -0.9799221773099883,
+                                    "_z": 0.02183751345865237,
+                                    "_w": 0.045619096830161854
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLCalf"},
+                                "value": {
+                                    "_x": -0.012670194726673828,
+                                    "_y": 0.007434108276732687,
+                                    "_z": 0.2850187233630246,
+                                    "_w": -0.9584093479852386
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLFoot"},
+                                "value": {
+                                    "_x": 0.03431914355064769,
+                                    "_y": 0.028290249688470437,
+                                    "_z": -0.7963340283729018,
+                                    "_w": -0.603219624871774
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRCalf"},
+                                "value": {
+                                    "_x": -0.017228086311860805,
+                                    "_y": 0.007474884624182519,
+                                    "_z": -0.3628578177891447,
+                                    "_w": 0.9316552769937645
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLUpperarm"},
+                                "value": {
+                                    "_x": 0.07988930186575952,
+                                    "_y": -0.4833011067841636,
+                                    "_z": 0.32161929520878896,
+                                    "_w": 0.8103078651629734
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRUpperarm"},
+                                "value": {
+                                    "_x": 0.4133453562736441,
+                                    "_y": -0.371367857166323,
+                                    "_z": 0.21106163845586734,
+                                    "_w": -0.8041669695064732
+                                }
+                            }]
+                        },
+                        {
+                            "list": [{
+                                "bone": {"name": "Base HumanLThigh"},
+                                "value": {
+                                    "_x": -0.31227778083552815,
+                                    "_y": -0.9486435669334682,
+                                    "_z": -0.003329626747765768,
+                                    "_w": 0.05046674723408551
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLCalf"},
+                                "value": {
+                                    "_x": -0.017401183533687803,
+                                    "_y": -0.004264536444888056,
+                                    "_z": 0.02953275754106305,
+                                    "_w": 0.9994032628604788
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLUpperarm"},
+                                "value": {
+                                    "_x": 0.39987815503114066,
+                                    "_y": -0.34032835795987226,
+                                    "_z": -0.037805349251532505,
+                                    "_w": 0.8502029061312508
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLUpperarm"},
+                                "value": {
+                                    "_x": 0.42598109571595527,
+                                    "_y": -0.41783828070697504,
+                                    "_z": -0.024740598314092616,
+                                    "_w": 0.8020842636244202
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRUpperarm"},
+                                "value": {
+                                    "_x": 0.13342302646599258,
+                                    "_y": -0.4840734904557474,
+                                    "_z": -0.3819515731834153,
+                                    "_w": -0.7758763613058558
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRThigh"},
+                                "value": {
+                                    "_x": -0.1534220823288469,
+                                    "_y": 0.9871242044551557,
+                                    "_z": 0.017514185533175353,
+                                    "_w": 0.04172206737502304
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLFoot"},
+                                "value": {
+                                    "_x": -0.02485113984358034,
+                                    "_y": -0.03678016837180437,
+                                    "_z": 0.5929416283806385,
+                                    "_w": 0.8040210646575676
+                                }
+                            }]
+                        },
+                        {
+                            "list": [{
+                                "bone": {"name": "Base HumanRThigh"},
+                                "value": {
+                                    "_x": 0.3109536067147225,
+                                    "_y": 0.9493473467885384,
+                                    "_z": -0.0033128116280599917,
+                                    "_w": 0.04512762880522497
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLThigh"},
+                                "value": {
+                                    "_x": 0.1928589015089535,
+                                    "_y": -0.9799221773099883,
+                                    "_z": 0.02183751345865237,
+                                    "_w": 0.045619096830161854
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLCalf"},
+                                "value": {
+                                    "_x": -0.012670194726673828,
+                                    "_y": 0.007434108276732687,
+                                    "_z": 0.2850187233630246,
+                                    "_w": -0.9584093479852386
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLFoot"},
+                                "value": {
+                                    "_x": 0.03431914355064769,
+                                    "_y": 0.028290249688470437,
+                                    "_z": -0.7963340283729018,
+                                    "_w": -0.603219624871774
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRCalf"},
+                                "value": {
+                                    "_x": -0.017228086311860805,
+                                    "_y": 0.007474884624182519,
+                                    "_z": -0.3628578177891447,
+                                    "_w": 0.9316552769937645
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLUpperarm"},
+                                "value": {
+                                    "_x": 0.07988930186575952,
+                                    "_y": -0.4833011067841636,
+                                    "_z": 0.32161929520878896,
+                                    "_w": 0.8103078651629734
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRUpperarm"},
+                                "value": {
+                                    "_x": 0.4133453562736441,
+                                    "_y": -0.371367857166323,
+                                    "_z": 0.21106163845586734,
+                                    "_w": -0.8041669695064732
+                                }
+                            }]
+                        },
+                        {
+                            "list": [{
+                                "bone": {"name": "Base HumanRFoot"},
+                                "value": {
+                                    "_x": 0.02428494892928746,
+                                    "_y": 0.030633617145352867,
+                                    "_z": 0.6759176363077778,
+                                    "_w": 0.7359396522026791
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRCalf"},
+                                "value": {
+                                    "_x": 0.005753347184347264,
+                                    "_y": 0.005670703765607631,
+                                    "_z": -0.09705482175631772,
+                                    "_w": 0.995246252788137
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRThigh"},
+                                "value": {
+                                    "_x": -0.02591576458654813,
+                                    "_y": -0.9986395223274775,
+                                    "_z": -0.009755774896335943,
+                                    "_w": -0.04418486672622118
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLFoot"},
+                                "value": {
+                                    "_x": -0.02809971859952018,
+                                    "_y": -0.034397308190313225,
+                                    "_z": 0.6632585203458383,
+                                    "_w": 0.7470711921848797
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLCalf"},
+                                "value": {
+                                    "_x": -0.0057612469792171885,
+                                    "_y": -0.005566377250096106,
+                                    "_z": -0.09409804660573891,
+                                    "_w": 0.995530703244525
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLThigh"},
+                                "value": {
+                                    "_x": 0.03973476672983241,
+                                    "_y": 0.997929441061629,
+                                    "_z": -0.01065856974205627,
+                                    "_w": -0.049440609486578
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanLUpperarm"},
+                                "value": {
+                                    "_x": 0.19652851512278108,
+                                    "_y": -0.4161484038686483,
+                                    "_z": 0.059871855154480735,
+                                    "_w": 0.8857835004455502
+                                }
+                            }, {
+                                "bone": {"name": "Base HumanRUpperarm"},
+                                "value": {
+                                    "_x": -0.199162975422524,
+                                    "_y": 0.4318614772356297,
+                                    "_z": 0.05850588133283463,
+                                    "_w": 0.8777282241959496
+                                }
+                            }]
+                        }
+                    ]
+                }
+            ];
+            animationsKeys.forEach(function (el) {
+                if (el.custom) {
+                    el.keyFrames.forEach(function (key) {
+                        if (key.list) {
+                            key.list.forEach(function (keyChild) {
+                                if(!keyChild.value)console.log(key);
+                                keyChild.value = new THREE.Quaternion(keyChild.value._x, keyChild.value._y, keyChild.value._z, keyChild.value._w);
+                                for (var isd = 0; isd < bonesAn.length; isd++) {
+                                    if (keyChild.bone.name == bonesAn[isd].name) {
+                                        return keyChild.bone.obj = bonesAn[isd].obj;
+                                    }
+                                }
+                            });
+                        } else {
+                            if(!key.value)console.log(key);
+                            key.value = new THREE.Quaternion(key.value._x, key.value._y, key.value._z, key.value._w);
+                            for (var isd = 0; isd < bonesAn.length; isd++) {
+                                if (key.bone.name == bonesAn[isd].name) {
+                                    return key.bone.obj = bonesAn[isd].obj;
+                                }
+                            }
+                        }
+                    })
+                }
+            });
+        }
+
+        var model = location.href.split("=")[1] || "test";
+        loader.load('./assets/models/' + model + '.DAE', function (collada) {
+
+            dae = collada.scene;
+
+            dae.traverse(function (child) {
+
+                if (child instanceof THREE.Mesh) {
+
+                    child.geometry.computeFaceNormals();
+                    child.material.shading = THREE.FlatShading;
+
+                }
+
+            });
+
+            dae.scale.x = dae.scale.y = dae.scale.z = 10.0;
+            dae.updateMatrix();
+
+            kinematics = collada.kinematics;
+
+
+            init();
+            animate();
+
+        });
+        function disableGUI(controllerRotationx, show) {
+            controllerRotationx.__li.setAttribute("style", "display: " + (show ? "" : "none"));
+            controllerRotationx.updateDisplay();
+        }
+
+        function init() {
+
+            container = document.createElement('div');
+            document.body.appendChild(container);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 200000);
+            camera.position.set(-1115.5859874542348, 6104.7888387651365, 8424.940585322518);
+
+            scene = new THREE.Scene();
+
+            // Grid
+
+            var grid = new THREE.GridHelper(20, 20);
+            scene.add(grid);
+
+            // Add the COLLADA
+
+            scene.add(dae);
+
+            particleLight = new THREE.Mesh(new THREE.SphereGeometry(4, 8, 8), new THREE.MeshBasicMaterial({color: 0xffffff}));
+            scene.add(particleLight);
+
+            // Lights
+
+            var light = new THREE.HemisphereLight(0xffeeee, 0x111122);
+            scene.add(light);
+
+            var pointLight = new THREE.PointLight(0xffffff, 0.3);
+            particleLight.add(pointLight);
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+//            controls.autoRotate = true;
+            controls.target.set(-756.8359681572341, 1958.165503093403, -591.2259518183582);
+            transformControl = new THREE.TransformControls(camera, renderer.domElement);
+            transformControl.addEventListener('change', function () {
+//               if(this.object)console.log(this.object.quaternion);
+            });
+            transformControl.setMode("rotate");
+            setupTween();
+            onLoadDae();
+            main.transformControl = transformControl;
+            //
+
+            window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener( 'keydown', function ( event ) {
+                //console.log(event.which);
+                switch ( event.keyCode ) {
+                    case 81: // Q
+                        transformControl.setSpace( transformControl.space == "local" ? "world" : "local" );
+                        break;
+                    case 87: // W
+                        transformControl.setMode( "translate" );
+                        break;
+                    case 69: // E
+                        transformControl.setMode( "rotate" );
+                        break;
+                    case 82: // R
+                        transformControl.setMode( "scale" );
+                        break;
+                    case 187:
+                    case 107: // +,=,num+
+                        transformControl.setSize( transformControl.size + 0.1 );
+                        break;
+                    case 189:
+                    case 10: // -,_,num-
+                        transformControl.setSize( Math.max(transformControl.size - 0.1, 0.1 ) );
+                        break;
+                }
+            });
+
+        }
+
+        function setupTween() {
+
+            var duration = getRandomInt(1000, 5000);
+
+            var target = {};
+
+//        for ( var i = 0; i < kinematics.joints.length; i ++ ) {
+//
+//            var joint = kinematics.joints[ i ];
+//
+//            var old = tweenParameters[ i ];
+//
+//            var position = old ? old : joint.zeroPosition;
+//
+//            tweenParameters[ i ] = position;
+//
+//            target[ i ] = getRandomInt( joint.limits.min, joint.limits.max )
+//
+//        }
+
+//        kinematicsTween = new TWEEN.Tween( tweenParameters ).to( target, duration ).easing( TWEEN.Easing.Quadratic.Out );
+//
+//        kinematicsTween.onUpdate( function() {
+//
+//            for ( var i = 0; i < kinematics.joints.length; i ++ ) {
+//
+//                kinematics.setJointValue( i, this[ i ] );
+//
+//            }
+//
+//        } );
+
+//        kinematicsTween.start();
+
+//        setTimeout( setupTween, duration );
+
+        }
+
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+        }
+
+        //
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            render();
+            TWEEN.update();
+            controls.update();
+
+        }
+
+        function render() {
+
+            var timer = Date.now() * 0.0001;
+
+//        camera.position.x = Math.cos( timer ) * 17;
+//        camera.position.y = 10;
+//        camera.position.z = Math.sin( timer ) * 17;
+//
+//        camera.lookAt( scene.position );
+
+            particleLight.position.x = Math.sin(timer * 4) * 3009;
+            particleLight.position.y = Math.cos(timer * 5) * 4000;
+            particleLight.position.z = Math.cos(timer * 4) * 3009;
+
+            renderer.render(scene, camera);
+
+        }
+
+        // Returns a random integer between min (inclusive) and max (inclusive)
+        // Using Math.round() will give you a non-uniform distribution!
+
+        function startTween(keys) {
+            var _this3 = this;
+
+            if (!startTween.isFinish) return;
+            var arg = keys.shift();
+            var changees = [];
+            var quaternionChange, v3;
+
+
+            var duration = arg.duration || 1100,
+                    tween = new TWEEN.Tween({delta: 0}).to({delta: 1}, duration).easing(TWEEN.curEasing).onStart(function () {
+                        controls.enabled = startTween.isFinish = false;
+                    }).onUpdate(function (delta) {
+                        if (arg.list) {
+                            for (var is = 0; is < arg.list.length; is++) {
+                                arg.list[is].bone.obj.quaternion.slerp(arg.list[is].value || arg.list[is].bone.obj.defQuads, delta);
+                            }
+                        } else {
+                            arg.bone.obj.quaternion.slerp(arg.value || arg.bone.obj.defQuads, delta);
+                        }
+
+                    }).onComplete(function () {
+
+                        startTween.isFinish = controls.enabled = true;
+                        tween = null;
+                        if (arg.onComplete) arg.onComplete();
+
+                        if (keys.length)startTween(keys);
+                    }).start();
+        }
+
+        startTween.isFinish = true;
+        function getRandomInt(min, max) {
+
+            return Math.floor(Math.random() * ( max - min + 1 )) + min;
+
+        }
+    }
+    main()
+</script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - morph targets - horse</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            font-family: Monospace;
+            background-color: #f0f0f0;
+            margin: 0px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<script src="./assets/libs/threejs/three.js"></script>
+<script src="./assets/libs/threejs/stats.min.js"></script>
+<script src="./assets/libs/threejs/OrbitControls.js"></script>
+<script src="./assets/libs/dat.gui.min.js"></script>
+
+<script>
+
+    var container, stats, controls;
+    var camera, scene, projector, renderer;
+    var mesh, mixer, mixers = [], gui;
+    var idleWeight, animationPlayng;
+    var actions = [];
+
+
+    function setWeight(action, weight) {
+
+        action.enabled = true;
+        action.setEffectiveTimeScale(1);
+        action.setEffectiveWeight(weight);
+
+    }
+    function activateAllActions() {
+        mesh.rotation.z = mesh.rotation.x = mesh.rotation.y = 0;
+
+        actions.forEach(function (action) {
+            setWeight(action, 1);
+            action.play();
+
+        });
+        animationPlayng = true;
+    }
+    function activateAction(action) {
+        mesh.rotation.z = mesh.rotation.x = mesh.rotation.y = 0;
+        setWeight(action, 1);
+        action.play();
+        animationPlayng = true;
+    }
+    function deactivateAllActions() {
+        mesh.rotation.x = -Math.PI / 2;
+        actions.forEach(function (action) {
+
+            action.stop();
+
+        });
+        animationPlayng = false;
+    }
+
+
+    // Called by the render loop
+
+    function updateCrossFadeControls() {
+
+
+    }
+    function init() {
+
+        container = document.createElement('div');
+        document.body.appendChild(container);
+
+
+        camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
+        camera.position.y = 300;
+        camera.target = new THREE.Vector3(0, 150, 0);
+
+
+        scene = new THREE.Scene();
+
+        //
+
+        var light = new THREE.DirectionalLight(0xefefff, 1.1);
+        light.position.set(1, 1, 1).normalize();
+        scene.add(light);
+
+        var light = new THREE.DirectionalLight(0xffefef, 1.0);
+        light.position.set(-1, -1, -1).normalize();
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0xffefef, 0.5));
+        gui = new dat.GUI({width: 350});
+        var loader = new THREE.JSONLoader();
+        var
+                bones = [
+                    {
+                        name: "UpperArm",
+                        rotation: {x: 20, y: 10, z: 20},
+                        position: {x: 50, y: 10, z: 10},
+                        scale: {x: 2, y: 2, z: 2}
+                    },
+                    {
+                        name: "Forearm",
+                        rotation: {x: 20, y: 10, z: 10},
+                        position: {x: 50, y: 10, z: 10},
+                        scale: {x: 2, y: 2, z: 2}
+                    },
+                    {
+                        name: "Thigh",
+                        rotation: {x: 20, z: 10},
+                        position: {x: 60, y: 10, z: 50},
+                        scale: {x: 2, y: 2, z: 2}
+                    },
+                    {
+                        name: "Head",
+                        rotation: {x: 20, y: 15, z: 20},
+                        position: {x: 15, y: 10, z: 10},
+                        scale: {x: 2, y: 2, z: 2}
+                    },
+                ],
+                folders = {},
+                par = {
+                    animations: [],
+                    bones: [],
+                    startAnimation: function () {
+                        activateAllActions();
+                    },
+                    deactivateAllActions: function () {
+                        deactivateAllActions()
+                    },
+                    position: {x: 0, y: 0, z: 0},
+                    rotation: {x: 0, y: 0, z: 0},
+                    scale: {x: 0, y: 0, z: 0},
+                },
+                changes = ['position', 'rotation', 'scale'],
+
+                selectedBone;
+        (function loadAnim(list){
+            if(list.length)
+            loader.load(list.shift(), function (geometry, a, d) {
+                if (!mesh) {
+                    mesh = new THREE.SkinnedMesh(geometry,
+                            new THREE.MeshPhongMaterial({
+                                color: 0xaaaa00,
+                                skinning: true,
+                                morphTargets: true,
+                                shading: THREE.SmoothShading,
+                                transparent: true,
+                                overdraw: true
+                            })
+                    );
+                    mesh.rotation.z = mesh.rotation.x = mesh.rotation.y = 0;
+                    mesh.geometry.computeVertexNormals();
+
+//                    gui.add(par, 'startAnimation');
+                    gui.add(par, 'deactivateAllActions');
+                    gui.add(par, "bones", mesh.skeleton.bones.map(function (el, index) {
+                        return el.name + "__" + index
+                    }).filter(function (el) {
+                        var a = false;
+                        for (var i = 0; i < bones.length; i++) {
+                            if (el.match(bones[i].name)) {
+                                a = true;
+                                break;
+                            }
+                        }
+                        return a;
+                    })).listen().onChange(function (value) {
+                        selectedBone = mesh.skeleton.bones[value.split("__")[1]];
+                        var _selectedBone;
+
+                        for (var i = 0; i < bones.length; i++) {
+                            if (value.match(bones[i].name)) {
+                                _selectedBone = bones[i]
+                                break;
+                            }
+                        }
+                        for (var field in par) {
+                            if (changes.indexOf(field) > -1) {
+                                for (var fields in par[field]) {
+                                    if (_selectedBone && _selectedBone[field][fields]) {
+                                        disableGUI(folders[field + fields], true);
+                                        folders[field + fields].listen().min(-_selectedBone[field][fields]).max(_selectedBone[field][fields]);
+                                        par[field][fields] = selectedBone[field][fields];
+                                    } else {
+                                        disableGUI(folders[field + fields], false);
+                                    }
+                                }
+                            }
+
+                        }
+
+                    });
+                    for (var field in par) {
+                        if (changes.indexOf(field) > -1) {
+                            var fold = folders[field] = gui.addFolder(field);
+                            for (var fields in par[field]) {
+                                var isR = field == "rotation",
+                                        size = isR ? 360 : 1000;
+                                folders[field + fields] = fold.add(par[field], fields).listen().min(-size).max(size).step(0.1).onChange((function (f, f1) {
+                                    return function (e) {
+                                        if (animationPlayng)deactivateAllActions();
+                                        if (selectedBone) {
+                                            selectedBone.useQuaternion = false;
+                                            selectedBone.matrixAutoUpdate = true;
+                                            selectedBone.matrixWorldNeedsUpdate = true;
+                                            mesh.geometry.verticesNeedUpdate = true;
+                                            mesh.geometry.normalsNeedUpdate = true;
+                                            if (f == "rotation") {
+                                                selectedBone.quaternion[f1] = e * Math.PI / 180;
+                                            } else {
+                                                selectedBone[f][f1] = e;
+                                            }
+
+                                        }
+                                    }
+                                })(field, fields));
+                                disableGUI(folders[field + fields]);
+                            }
+                        }
+                    }
+                    if (mesh === undefined) {
+
+                        alert('Unable to find a SkinnedMesh in this place:\n\n' + url + '\n\n');
+                        return;
+
+                    }
+
+
+                    // Add mesh and skeleton helper to scene
+
+                    mesh.rotation.y = -135 * Math.PI / 180;
+                    scene.add(mesh);
+                    skeleton = new THREE.SkeletonHelper(mesh);
+                    scene.add(skeleton);
+                    var radius = mesh.geometry.boundingSphere.radius;
+                    camera.position.set(0.0, radius, radius * 3.5);
+                    controls.target.set(0, 0, 0);
+                    geometry.animations[0].name = "walking";
+
+
+                } else {
+                    geometry.animations[0].name = "hat_dress";
+                    mesh.geometry.animations.push(geometry.animations[0]);
+                    mixer = new THREE.AnimationMixer(mesh);
+                    mixers.push(mixer);
+                    actions.push(mixer.clipAction('walking'));
+                    actions.push(mixer.clipAction('hat_dress'));
+                    var _smesh = new THREE.SkinnedMesh(geometry,
+                            new THREE.MeshPhongMaterial({morphTargets: true, shading: THREE.SmoothShading})
+                    );
+
+                    gui.add(par, 'animations', mesh.geometry.animations.map(function (anim, inx) {
+                        return anim.name
+                    })).onChange(function (name) {
+                        deactivateAllActions();
+                        for (var i = 0; i < mesh.geometry.animations.length; i++) {
+                            if (mesh.geometry.animations[i].name == name) {
+                                return activateAction(actions[i]);
+                            }
+                        }
+
+                    });
+                    activateAction(actions[0]);
+                    animate();
+                }
+                loadAnim(list);
+
+
+            });
+        })(["assets/models/test3.js", "assets/models/test5.js"])
+
+
+        //
+
+        renderer = new THREE.WebGLRenderer({antialias: true});
+        renderer.setClearColor(0xf0f0f0);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        //
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+//				controls.addEventListener( 'change', render ); // remove when using animation loop
+        // enable animation loop when using damping or autorotation
+        //controls.enableDamping = true;
+        //controls.dampingFactor = 0.25;
+//				controls.enableZoom = false;
+        stats = new Stats();
+        container.appendChild(stats.dom);
+
+        //
+
+        window.addEventListener('resize', onWindowResize, false);
+
+    }
+
+    function disableGUI(controllerRotationx, show) {
+        controllerRotationx.__li.setAttribute("style", "display: " + (show ? "" : "none"));
+        controllerRotationx.updateDisplay();
+    }
+    function onWindowResize() {
+
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+    }
+
+    //
+
+    function animate() {
+
+        requestAnimationFrame(animate);
+
+        render();
+        stats.update();
+
+    }
+
+    var radius = 600;
+    var theta = 0;
+
+    var prevTime = Date.now();
+
+    function render() {
+
+        theta += 0.1;
+        var time = Date.now();
+        for (var i = 0; i < mixers.length; i++) {
+//            mixers[i].effectiveWeight= mixers[i].getEffectiveWeight();
+            mixers[i].update(( time - prevTime ) * 0.001);
+
+        }
+        prevTime = time;
+        controls.update();
+        renderer.render(scene, camera);
+
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+
+        init();
+
+    });
+</script>
+
+</body>
+</html>
