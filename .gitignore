@@ -32,7 +32,7 @@
 npm-debug.log
 testem.log
 /typings
-/assets/models
+#/assets/models
 
 # e2e
 /e2e/*.js

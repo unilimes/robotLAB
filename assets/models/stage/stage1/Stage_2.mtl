@@ -1,0 +1,151 @@
+# 
+# Wavefront material file
+# Converted by the DEEP Exploration  Deep Exploration 6.5 x64 6.5.0.9182
+# Right Hemisphere, LTD
+# http://www.righthemisphere.com/
+# 
+
+newmtl Explorer_Default
+Ka 0.117647 0.117647 0.117647
+Kd 0.752941 0.752941 0.752941
+Ks 0.752941 0.752941 0.752941
+illum 2
+Ns 8
+map_Kd 
+map_bump 
+bump 
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 
+
+newmtl Parket
+Ka 0 0 0
+Kd 1 1 1
+Ks 1 1 1
+illum 2
+Ns 2048
+map_Kd arch_scene_side_deffuse.png
+map_bump 
+bump 
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 
+
+newmtl marble
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+illum 2
+Ns 64
+map_Kd arch_scene_side_deffuse.png
+map_bump 
+bump 
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 
+
+newmtl curtains
+Ka 0 0 0
+Kd 1 1 1
+Ks 0.009 0.009 0.009
+illum 2
+Ns 2.14355
+map_Kd curtains_deffuse_1.png
+map_bump curtains_bump.png
+bump curtains_bump.png
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 
+
+newmtl rope
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+illum 2
+Ns 64
+map_Kd rope_diffuse.png
+map_bump rope_bump.png
+bump rope_bump.png
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 
+
+newmtl valant
+Ka 0 0 0
+Kd 1 1 1
+Ks 0 0 0
+illum 2
+Ns 64
+map_Kd valant_diffuse.png
+map_bump valant_bump.png
+bump valant_bump.png
+map_opacity valant_mask.png
+map_d valant_mask.png
+refl 
+map_kS 
+map_kA 
+map_Ns 
+
+newmtl reflector
+Ka 0 0 0
+Kd 0.392157 0.392157 0.392157
+Ks 1 1 1
+illum 2
+Ns 64
+map_Kd 
+map_bump 
+bump 
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 
+
+newmtl glass
+Ka 0 0 0
+Kd 0.0784314 0.0784314 0.0784314
+Ks 0 0 0
+illum 2
+Ns 64
+d 0.1
+map_Kd 
+map_bump lamp_bamp.png
+bump lamp_bamp.png
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 
+
+newmtl lamp
+Ka 0 0 0
+Kd 0.00392157 0.00392157 0.00392157
+Ks 1 1 1
+illum 2
+Ns 22.6274
+map_Kd 
+map_bump 
+bump 
+map_opacity 
+map_d 
+refl 
+map_kS 
+map_kA 
+map_Ns 

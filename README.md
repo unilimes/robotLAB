@@ -9,7 +9,6 @@
 ### How do I get set up? ###
 
 * npm install
-* bower install
 
 ### Contribution guidelines ###
 

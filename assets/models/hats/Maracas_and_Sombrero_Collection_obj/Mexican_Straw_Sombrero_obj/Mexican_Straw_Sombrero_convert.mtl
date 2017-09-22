@@ -1,0 +1,22 @@
+# 
+# Wavefront material file
+# Converted by the DEEP Exploration  Deep Exploration 6.5 x64 6.5.0.9182
+# Right Hemisphere, LTD
+# http://www.righthemisphere.com/
+# 
+
+newmtl Weave
+Ka 0.5 0.5 0.5
+Kd 1 1 1
+Ks 1 1 1
+illum 2
+Ns 2.14355
+map_Kd Sombrero02_DIF.png
+map_bump Sombrero02_NRM.png
+bump Sombrero02_NRM.png
+map_opacity 
+map_d 
+refl 
+map_kS Sombrero02_RFL.png
+map_kA 
+map_Ns Sombrero02_GLOSS.png
